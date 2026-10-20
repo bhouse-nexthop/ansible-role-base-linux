@@ -47,7 +47,7 @@
         state: disabled
       with_items:
         - cockpit
-        - sshd
+        - ssh
 
 - name: check if mta is already set to sendmail
   ansible.builtin.shell: alternatives --display mta | grep link | grep /usr/sbin/sendmail.exim
