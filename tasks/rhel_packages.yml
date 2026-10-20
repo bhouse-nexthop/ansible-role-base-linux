@@ -87,4 +87,13 @@
       - "fail2ban"
       - "firewalld"
       - "setools-console"
+      - "audit"
     state: installed
+
+# EL10 split rules.d, augenrules and auditctl out of audit into audit-rules,
+# which audit doesn't require; cis.yml needs them. EL9 has no such package.
+- name: install audit-rules on EL10 and later
+  ansible.builtin.dnf:
+    name: "audit-rules"
+    state: installed
+  when: ansible_facts['distribution_major_version'] | int >= 10
