@@ -82,6 +82,7 @@ enabled=0
 metadata_expire=6h
 gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-Rocky-10
 
+# EPEL packages depend on CRB, so it is enabled alongside EPEL.
 [crb]
 name=Rocky Linux $releasever - CRB
 {% if mirror_rocky is not defined %}
@@ -90,7 +91,7 @@ mirrorlist=https://mirrors.rockylinux.org/mirrorlist?arch=$basearch&repo=CRB-$re
 baseurl={{ mirror_rocky }}/$releasever/CRB/$basearch/os/
 {% endif %}
 gpgcheck=1
-enabled=0
+enabled=1
 countme=1
 metadata_expire=6h
 gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-Rocky-10
