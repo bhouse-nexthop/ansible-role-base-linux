@@ -15,6 +15,7 @@ cpu_governor: "performance"
 lsi_reset_workaround: true
 base_additional_hosts: []
 drop_caches: false
+nfs_disable_directory_delegations: true
 # setuid/setgid commands audited on execution (CIS "privileged" rules). A rule
 # is only emitted when the command's directory exists on the host.
 base_linux_audit_privileged_cmds:

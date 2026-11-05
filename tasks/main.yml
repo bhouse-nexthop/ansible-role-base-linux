@@ -366,6 +366,48 @@
     mode: "0600"
   notify: sysctl_reload
 
+# Install the modprobe option on every host regardless of the running kernel.
+# Gating on the running kernel misses the upgrade path: a host running 6.x
+# that gets a 7.0 kernel via a package upgrade boots into 7.0 with directory
+# delegations enabled. On kernels without the parameter, the option is ignored
+# ("unknown parameter ... ignored" in dmesg) and the module still loads.
+- name: "NFS: persist directory delegation setting"
+  ansible.builtin.copy:
+    src: modprobe_nfsv4.conf
+    dest: /etc/modprobe.d/nfsv4.conf
+    owner: root
+    group: root
+    mode: "0644"
+  when: nfs_disable_directory_delegations
+
+- name: "NFS: remove directory delegation override when disabled"
+  ansible.builtin.file:
+    path: /etc/modprobe.d/nfsv4.conf
+    state: absent
+  when: not nfs_disable_directory_delegations
+
+# Apply to the running module too, so a reboot is not needed. Gate on the
+# parameter actually existing in the loaded module, not on a kernel version.
+- name: "NFS: check whether the loaded nfsv4 module has the parameter"
+  ansible.builtin.stat:
+    path: /sys/module/nfsv4/parameters/directory_delegations
+  register: nfs_dirdeleg
+
+- name: "NFS: read current directory delegation setting"
+  ansible.builtin.slurp:
+    src: /sys/module/nfsv4/parameters/directory_delegations
+  register: nfs_dirdeleg_now
+  when: nfs_dirdeleg.stat.exists
+
+- name: "NFS: apply directory delegation setting without a reboot"
+  ansible.builtin.shell: >-
+    echo {{ 'N' if nfs_disable_directory_delegations else 'Y' }}
+    > /sys/module/nfsv4/parameters/directory_delegations
+  changed_when: true
+  when:
+    - nfs_dirdeleg.stat.exists
+    - (nfs_dirdeleg_now.content | b64decode | trim) != ('N' if nfs_disable_directory_delegations else 'Y')
+
 - name: "Set cpu performance governor"
   ansible.builtin.include_tasks: "cpu_governor.yml"
   when: ansible_facts['virtualization_role'] != 'guest' and ansible_facts['chassis_vendor'] != 'QEMU'
