@@ -120,6 +120,17 @@
     mode: "0600"
   register: auditd_conf
 
+# The kernel rejects a path rule with ENOENT when the path's directory doesn't
+# exist (e.g. /usr/libexec/utempter without libutempter), and augenrules stops
+# at the first failed rule. A missing command in an existing directory loads
+# fine and is audited once installed, so only the directory is checked.
+- name: "CIS: check which privileged command directories exist"
+  ansible.builtin.stat:
+    path: "{{ item }}"
+    get_checksum: false
+  loop: "{{ base_linux_audit_privileged_cmds | map('dirname') | unique | list }}"
+  register: audit_privileged_dirs
+
 - name: "CIS: add configuration to /etc/audit.d/rules.d/audit.rules"
   ansible.builtin.template:
     src: audit.rules.j2

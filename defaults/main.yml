@@ -15,3 +15,30 @@ cpu_governor: "performance"
 lsi_reset_workaround: true
 base_additional_hosts: []
 drop_caches: false
+# setuid/setgid commands audited on execution (CIS "privileged" rules). A rule
+# is only emitted when the command's directory exists on the host.
+base_linux_audit_privileged_cmds:
+  - /usr/bin/wall
+  - /usr/bin/mount
+  - /usr/bin/chage
+  - /usr/bin/gpasswd
+  - /usr/bin/newgrp
+  - /usr/bin/chfn
+  - /usr/bin/su
+  - /usr/bin/chsh
+  - /usr/bin/umount
+  - /usr/bin/write
+  - /usr/bin/sudo
+  - /usr/bin/pkexec
+  - /usr/bin/crontab
+  - /usr/bin/ssh-agent
+  - /usr/bin/passwd
+  - /usr/sbin/pam_timestamp_check
+  - /usr/sbin/unix_chkpwd
+  - /usr/sbin/netreport
+  - /usr/sbin/usernetctl
+  - /usr/sbin/postdrop
+  - /usr/sbin/postqueue
+  - /usr/lib/polkit-1/polkit-agent-helper-1
+  - /usr/libexec/utempter/utempter
+  - /usr/libexec/openssh/ssh-keysign
