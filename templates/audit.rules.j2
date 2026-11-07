@@ -18,8 +18,13 @@
 -a exclude,always -F msgtype=CWD
 
 ## Time changes -- CIS 4.1.3; PCI 10.4.2
--a always,exit -F arch=b64 -F subj_type=ntpd_t -S adjtimex -S settimeofday -k time-change
--a always,exit -F arch=b32 -F subj_type=ntpd_t -S adjtimex -S settimeofday -S stime -k time-change
+# clock_settime (date -s, timedatectl, chronyd stepping the clock) is audited
+# for every process. adjtimex is also how the time daemon slews the clock and
+# how monitoring agents read its state (node_exporter's timex collector on
+# every scrape), so it and the legacy calls are only audited for login
+# sessions; sudo keeps the user's auid.
+-a always,exit -F arch=b64 -S adjtimex -S settimeofday -F auid>=1000 -F auid!=4294967295 -k time-change
+-a always,exit -F arch=b32 -S adjtimex -S settimeofday -S stime -F auid>=1000 -F auid!=4294967295 -k time-change
 -a always,exit -F arch=b64 -S clock_settime -k time-change
 -a always,exit -F arch=b32 -S clock_settime -k time-change
 
@@ -92,6 +97,7 @@
 ## setuid/setgid bits set by users -- CIS 4.1.10 (narrowed, see below)
 # Permission changes are otherwise only audited under the system paths below;
 # setting a setuid/setgid bit is worth recording wherever it happens.
+# (fchmodat2 is covered at the end of the file.)
 -a always,exit -F arch=b64 -S chmod -S fchmod -F a1&0xc00 -F auid>=1000 -F auid!=4294967295 -k perm_mod_setid
 -a always,exit -F arch=b32 -S chmod -S fchmod -F a1&0xc00 -F auid>=1000 -F auid!=4294967295 -k perm_mod_setid
 -a always,exit -F arch=b64 -S fchmodat -F a2&0xc00 -F auid>=1000 -F auid!=4294967295 -k perm_mod_setid
@@ -124,3 +130,29 @@
 -w /usr/libexec -p wa -k sys_object
 -w /lib64 -p wa -k sys_object
 -w /usr/lib64 -p wa -k sys_object
+
+## fchmodat2 -- CIS 4.1.10; PCI 10.2.7
+# glibc 2.39+ uses fchmodat2 for fchmodat with AT_SYMLINK_NOFOLLOW, and the
+# kernel's attribute class doesn't include it (as of 6.17), so neither -p a
+# nor the rules above see it. It is given by number because older auditctl
+# builds don't know the name; it is 452 on every architecture, and on kernels
+# without it the rules load and never match. These come after everything else
+# so a rejected rule can't take earlier ones down with it.
+{% set audit_fchmodat2 = 452 %}
+-a always,exit -F arch=b64 -S {{ audit_fchmodat2 }} -F a2&0xc00 -F auid>=1000 -F auid!=4294967295 -k perm_mod_setid
+-a always,exit -F arch=b32 -S {{ audit_fchmodat2 }} -F a2&0xc00 -F auid>=1000 -F auid!=4294967295 -k perm_mod_setid
+{% for dir in ['/etc', '/usr/bin', '/usr/sbin', '/usr/lib', '/usr/libexec', '/usr/lib64'] %}
+-a always,exit -F arch=b64 -S {{ audit_fchmodat2 }} -F dir={{ dir }} -k sys_object
+-a always,exit -F arch=b32 -S {{ audit_fchmodat2 }} -F dir={{ dir }} -k sys_object
+{% endfor %}
+{% if ansible_facts['kernel'].split('-')[0] is version('5.16', '>=') %}
+
+## Filesystem changes made through io_uring -- CIS 4.1.10, 4.1.14; PCI 10.2.7
+# io_uring operations skip the syscall exit filter, so none of the rules above
+# see an IORING_OP_UNLINKAT and friends. This is the plain form of the rule,
+# with no fields beyond the operations, so it covers every path and user;
+# these operations are rare (qemu's io_uring block backend only reads and
+# writes). The io_uring filter needs kernel 5.16 or later. Kept last: if
+# auditctl rejects it, every rule above is already loaded.
+-a always,io_uring -S unlinkat -S renameat -S mkdirat -S symlinkat -S linkat -k io_uring_fs
+{% endif %}

@@ -148,10 +148,31 @@
     state: absent
   register: pcidss_rules
 
+# augenrules stops at the first rule auditctl rejects. A marker records that
+# the rules on disk haven't been loaded yet, so a failed load is retried on the
+# next run even though the rules files no longer show as changed.
+- name: "CIS: mark audit rules as needing a reload"
+  ansible.builtin.file:
+    path: /etc/audit/.base_linux_reload_pending
+    state: touch
+    mode: "0600"
+  when: audit_rules.changed or pcidss_rules.changed
+
+- name: "CIS: check for an audit rules reload still pending"
+  ansible.builtin.stat:
+    path: /etc/audit/.base_linux_reload_pending
+    get_checksum: false
+  register: audit_reload_pending
+
 - name: "CIS: run augenrules when audit rules have changed"
   ansible.builtin.command: "augenrules --load"
-  when: audit_rules.changed or pcidss_rules.changed
+  when: audit_reload_pending.stat.exists or audit_rules.changed or pcidss_rules.changed
   notify: auditd_reload
+
+- name: "CIS: clear the pending audit rules reload"
+  ansible.builtin.file:
+    path: /etc/audit/.base_linux_reload_pending
+    state: absent
 
 - name: "CIS: enable auditd to write to syslog for log collection"
   ansible.builtin.copy:
