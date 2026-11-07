@@ -112,13 +112,13 @@
     regexp: "^UMASK .*"
 
 - name: "CIS: add auditd.conf configuration"
-  ansible.builtin.copy:
-    src: auditd.conf
+  ansible.builtin.template:
+    src: auditd.conf.j2
     dest: /etc/audit/auditd.conf
     owner: root
     group: root
     mode: "0600"
-  register: auditd_conf
+  notify: auditd_reload
 
 # The kernel rejects a path rule with ENOENT when the path's directory doesn't
 # exist (e.g. /usr/libexec/utempter without libutempter), and augenrules stops
@@ -174,13 +174,16 @@
     path: /etc/audit/.base_linux_reload_pending
     state: absent
 
+# audit 3.0 dropped the builtin syslog plugin; audisp-syslog ships in
+# audispd-plugins on RedHat and derivatives and in auditd on Debian.
 - name: "CIS: enable auditd to write to syslog for log collection"
-  ansible.builtin.copy:
-    src: audit_syslog.conf
+  ansible.builtin.template:
+    src: audit_syslog.conf.j2
     dest: "/etc/audit/plugins.d/syslog.conf"
     owner: root
     group: root
     mode: "0640"
+  notify: auditd_reload
 
 - name: "CIS: enable critical daemons"
   ansible.builtin.service:
