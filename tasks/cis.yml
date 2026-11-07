@@ -131,7 +131,7 @@
   loop: "{{ base_linux_audit_privileged_cmds | map('dirname') | unique | list }}"
   register: audit_privileged_dirs
 
-- name: "CIS: add configuration to /etc/audit.d/rules.d/audit.rules"
+- name: "CIS: add configuration to /etc/audit/rules.d/audit.rules"
   ansible.builtin.template:
     src: audit.rules.j2
     dest: /etc/audit/rules.d/audit.rules
@@ -140,10 +140,12 @@
     mode: "0600"
   register: audit_rules
 
-- name: "CIS: add configuration to /etc/audit.d/rules.d/pcidss.rules"
-  ansible.builtin.copy:
-    src: audit_pcidss.rules
-    dest: /etc/audit/rules.d/pcidss.rules
+# The PCI-DSS rules used to ship as a separate pcidss.rules; they are now part
+# of audit.rules, so remove the old file or augenrules would load both.
+- name: "CIS: remove the old /etc/audit/rules.d/pcidss.rules"
+  ansible.builtin.file:
+    path: /etc/audit/rules.d/pcidss.rules
+    state: absent
   register: pcidss_rules
 
 - name: "CIS: run augenrules when audit rules have changed"
